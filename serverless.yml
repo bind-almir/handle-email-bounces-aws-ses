@@ -1,0 +1,130 @@
+service: handle-email-bounces-aws-ses 
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  stage: ${{opt:stage}}
+  region: ${{opt:region}}
+  variableSyntax: '\${{([\s\S]+?)}}'
+
+functions:
+
+  handle-bounces:
+    handler: bounces.handler
+    role: HandleBouncesLambdaRole
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - EmailBouncesQueue
+              - Arn
+
+resources:
+  Resources:
+
+    EmailBouncesQueue:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "EmailBouncesQueue"
+
+    EmailBouncesTopic:
+      Type: AWS::SNS::Topic
+      Properties:
+        DisplayName: "Bounces topic"
+        TopicName: "EmailBouncesTopic"
+
+    BouncesQueueSubscription:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn: 
+          Ref: EmailBouncesTopic
+        Endpoint: 
+          Fn::GetAtt:
+            - EmailBouncesQueue
+            - Arn
+        Protocol: sqs
+        RawMessageDelivery: 'true' 
+
+    SnsToSqsSendMessagePolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: "allow-sns-messages"
+              Effect: Allow
+              Principal: "*"
+              Resource: !GetAtt
+                - EmailBouncesQueue
+                - Arn
+              Action: "SQS:SendMessage"
+              Condition:
+                ArnEquals:
+                  "aws:SourceArn": !Ref EmailBouncesTopic
+        Queues:
+          - Ref: EmailBouncesQueue
+
+    HandleBouncesLambdaRole:
+      Type: AWS::IAM::Role
+      Properties:
+        Path: /bounces/
+        RoleName: HandleBouncesLogAccessRole
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+
+          - PolicyName: HandleBouncesLogPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource: 
+                    - 'Fn::Join':
+                      - ':'
+                      -
+                        - 'arn:aws:logs'
+                        - Ref: 'AWS::Region'
+                        - Ref: 'AWS::AccountId'
+                        - 'log-group:/aws/lambda/*:*:*'
+
+          - PolicyName: HandleBouncesSQSPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - sqs:SendMessage
+                    - sqs:ReceiveMessage
+                    - sqs:DeleteMessage
+                    - sqs:GetQueueAttributes
+                    - sqs:ChangeMessageVisibility
+                  Resource: 
+                    - 'Fn::Join':
+                      - ':'
+                      -
+                        - 'arn:aws:sqs'
+                        - Ref: 'AWS::Region'
+                        - Ref: 'AWS::AccountId'
+                        - 'EmailBouncesQueue'       
+
+          - PolicyName: HandleBouncesLambdaPolicy
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - lambda:CreateEventSourceMapping
+                    - lambda:ListEventSourceMappings
+                    - lambda:ListFunctions
+                  Resource: 
+                    Fn::Sub: 'arn:aws:lambda:${{opt:region}}:${AWS::AccountId}:function:handle-email-bounces-aws-ses-${{opt:stage}}-handle-bounces'  

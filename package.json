@@ -1,0 +1,21 @@
+{
+  "name": "handle-email-bounces-aws-ses",
+  "version": "1.0.0",
+  "description": "",
+  "main": "bounces.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "serverless",
+    "aws",
+    "ses",
+    "sns",
+    "sqs",
+    "iam",
+    "lambda",
+    "bounce"
+  ],
+  "author": "Almir Zulic",
+  "license": "MIT"
+}
