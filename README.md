@@ -1,6 +1,6 @@
 **How to handle email bounces on AWS SES.**
 
-Read more [here](https://www.almirzulic.com/2019/07/03/how-to-handle-email-bounces-on-aws-ses/).
+Read more [here](https://almirzulic.com/posts/how-to-handle-email-bounces-on-aws-ses/).
 
 
 ### Instructions 
